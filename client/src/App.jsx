@@ -1,35 +1,46 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import UserProfile from "./components/UserProfile";
+import Lobby from "./components/Lobby";
+import ProfileViewer from "./components/ProfileViewer";
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [profile, setProfile] = useState(null);
+  const [activeView, setActiveView] = useState("create");
+
+  // Mise à jour du profil à chaque chargement
+  useEffect(() => {
+    const saved = localStorage.getItem("rpg_pulse_user");
+    if (saved) {
+      setProfile(JSON.parse(saved));
+      setActiveView("profil");
+    }
+  }, []);
+
+  const goTo = (view) => setActiveView(view);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className="min-h-screen bg-white p-6">
+      <nav className="mb-4 space-x-2">
+        {profile ? (
+          <>
+            <button onClick={() => goTo("profil")}>Voir mon profil</button>
+            <button onClick={() => goTo("lobby")}>Accéder au lobby</button>
+          </>
+        ) : (
+          <button onClick={() => goTo("create")}>Créer mon profil</button>
+        )}
+      </nav>
 
-export default App
+      {activeView === "create" && <UserProfile onSave={() => {
+        const saved = localStorage.getItem("rpg_pulse_user");
+        if (saved) {
+          setProfile(JSON.parse(saved));
+          setActiveView("profil");
+        }
+      }} />}
+
+      {activeView === "profil" && profile && <ProfileViewer />}
+      {activeView === "lobby" && profile && <Lobby />}
+    </div>
+  );
+}

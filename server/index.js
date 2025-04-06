@@ -13,37 +13,40 @@ const io = new Server(server, {
   },
 });
 
-// stocker les lobbies { lobbyId: [socket.id, ...] }
+// stocker les lobbies : { lobbyId: [{ socketId, profile }] }
 const lobbies = {};
 
 io.on("connection", (socket) => {
-  console.log("🔌 New socket connected:", socket.id);
+  console.log("🔌 Nouveau socket connecté :", socket.id);
 
-  socket.on("create_lobby", () => {
+  socket.on("create_lobby", ({ profile }) => {
     const lobbyId = uuidv4().slice(0, 6); // ID court
-    lobbies[lobbyId] = [socket.id];
+    lobbies[lobbyId] = [{ socketId: socket.id, profile }];
     socket.join(lobbyId);
     socket.emit("lobby_created", { lobbyId });
-    console.log(`🛠️ Lobby créé: ${lobbyId}`);
+    console.log(`🛠️ Lobby créé: ${lobbyId} par ${profile?.pseudo || socket.id}`);
   });
 
-  socket.on("join_lobby", ({ lobbyId }) => {
+  socket.on("join_lobby", ({ lobbyId, profile }) => {
     if (lobbies[lobbyId]) {
-      lobbies[lobbyId].push(socket.id);
+      lobbies[lobbyId].push({ socketId: socket.id, profile });
       socket.join(lobbyId);
-      io.to(lobbyId).emit("player_joined", { players: lobbies[lobbyId] });
-      console.log(`👥 ${socket.id} a rejoint le lobby ${lobbyId}`);
+
+      const playerList = lobbies[lobbyId].map(p => p.profile);
+      io.to(lobbyId).emit("player_joined", { players: playerList });
+
+      console.log(`👥 ${profile.pseudo} (${socket.id}) a rejoint le lobby ${lobbyId}`);
     } else {
       socket.emit("error_join", { message: "Lobby introuvable." });
     }
   });
 
   socket.on("disconnect", () => {
-    // Supprimer le socket de tous les lobbies
-    for (const [lobbyId, sockets] of Object.entries(lobbies)) {
-      if (sockets.includes(socket.id)) {
-        lobbies[lobbyId] = sockets.filter(id => id !== socket.id);
-        io.to(lobbyId).emit("player_joined", { players: lobbies[lobbyId] });
+    for (const [lobbyId, players] of Object.entries(lobbies)) {
+      if (players.find(p => p.socketId === socket.id)) {
+        lobbies[lobbyId] = players.filter(p => p.socketId !== socket.id);
+        const updated = lobbies[lobbyId].map(p => p.profile);
+        io.to(lobbyId).emit("player_joined", { players: updated });
         if (lobbies[lobbyId].length === 0) delete lobbies[lobbyId];
       }
     }
